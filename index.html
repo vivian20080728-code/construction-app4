@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="工地管理">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>工地管理系統</title>
+<style>
+:root {
+  --blue: #2563eb; --blue-dark: #1d4ed8; --blue-light: #eff6ff;
+  --green: #16a34a; --green-light: #f0fdf4;
+  --red: #dc2626; --red-light: #fef2f2;
+  --amber: #d97706; --amber-light: #fffbeb;
+  --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+  --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
+  --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+  --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; padding-bottom: 80px; font-size: 15px; }
+
+.header { background: var(--blue); color: white; padding: 16px 16px 12px; position: sticky; top: 0; z-index: 100; }
+.header h1 { font-size: 18px; font-weight: 600; }
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.sync-status { font-size: 11px; opacity: 0.85; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.sync-dot.syncing { background: #fbbf24; animation: pulse 1s infinite; }
+.sync-dot.error { background: #f87171; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.sync-btn { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--gray-200); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border: none; background: none; cursor: pointer; color: var(--gray-400); font-size: 10px; font-family: inherit; }
+.nav-btn.active { color: var(--blue); }
+.nav-btn svg { width: 22px; height: 22px; }
+
+.page { display: none; padding: 16px; }
+.page.active { display: block; }
+
+.card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.card-title { font-size: 14px; font-weight: 600; color: var(--gray-700); margin-bottom: 14px; }
+
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.metric { background: white; border-radius: 12px; padding: 14px 12px; box-shadow: var(--shadow); }
+.metric-label { font-size: 11px; color: var(--gray-500); margin-bottom: 4px; }
+.metric-value { font-size: 18px; font-weight: 700; }
+.metric-value.green { color: var(--green); }
+.metric-value.red { color: var(--red); }
+.metric-value.blue { color: var(--blue); }
+
+.form-group { margin-bottom: 12px; }
+label { font-size: 12px; font-weight: 500; color: var(--gray-600); display: block; margin-bottom: 5px; }
+input, select { width: 100%; padding: 11px 12px; border: 1.5px solid var(--gray-200); border-radius: var(--radius); font-size: 15px; font-family: inherit; background: white; color: var(--gray-900); -webkit-appearance: none; outline: none; transition: border-color 0.15s; }
+input:focus, select:focus { border-color: var(--blue); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn { width: 100%; padding: 13px; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.btn-primary { background: var(--blue); color: white; }
+.btn-danger-sm { background: var(--red-light); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 500; font-family: inherit; cursor: pointer; }
+
+.list-item { padding: 14px 0; border-bottom: 1px solid var(--gray-100); }
+.list-item:last-child { border-bottom: none; }
+.list-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+.list-item-title { font-size: 15px; font-weight: 600; }
+.list-item-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.list-item-row { display: flex; justify-content: space-between; align-items: center; }
+
+.badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-amber { background: var(--amber-light); color: var(--amber); }
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+
+.progress-bar { background: var(--gray-100); border-radius: 99px; height: 5px; margin-top: 6px; overflow: hidden; }
+.progress-fill { background: var(--blue); height: 100%; border-radius: 99px; }
+.progress-fill.green { background: var(--green); }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--gray-400); font-size: 14px; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; }
+.filter-bar select { flex-shrink: 0; width: auto; font-size: 13px; padding: 7px 10px; }
+.total-row { display: flex; justify-content: space-between; padding: 12px 0 0; border-top: 1px solid var(--gray-100); margin-top: 4px; font-weight: 600; font-size: 14px; }
+
+.toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: var(--gray-800); color: white; padding: 10px 18px; border-radius: 20px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+@media (min-width: 768px) {
+  body { max-width: 480px; margin: 0 auto; }
+  .summary-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <h1>🏗 工地管理系統</h1>
+    <button class="sync-btn" onclick="syncNow()">立即同步</button>
+  </div>
+  <div class="sync-status">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span id="sync-text">載入中...</span>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- 總覽 -->
+<div id="page-dashboard" class="page active">
+  <div class="summary-grid" id="summary-grid"></div>
+  <div class="card">
+    <div class="card-title">⚠️ 待收款項目</div>
+    <div id="unpaid-list"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 近期支出</div>
+    <div id="recent-expenses"></div>
+  </div>
+</div>
+
+<!-- 客戶 -->
+<div id="page-clients" class="page">
+  <div class="card">
+    <div class="card-title">➕ 新增客戶</div>
+    <div class="form-group"><label>姓名 *</label><input id="c-name" placeholder="陳大明" type="text"></div>
+    <div class="form-row">
+      <div class="form-group"><label>電話</label><input id="c-phone" placeholder="0912-345-678" type="tel"></div>
+      <div class="form-group"><label>備註</label><input id="c-note" placeholder="備註"></div>
+    </div>
+    <div class="form-group"><label>地址</label><input id="c-address" placeholder="台北市..."></div>
+    <button class="btn btn-primary" onclick="addClient()">新增客戶</button>
+  </div>
+  <div class="card">
+    <div class="card-title">👥 客戶列表</div>
+    <div id="clients-list"></div>
+  </div>
+</div>
+
+<!-- 工程 -->
+<div id="page-projects" class="page">
+  <div class="card">
+    <div class="card-title">➕ 新增工程</div>
+    <div class="form-group"><label>客戶 *</label><select id="p-client"><option value="">選擇客戶</option></select></div>
+    <div class="form-group"><label>工程名稱 *</label><input id="p-name" placeholder="一樓泥作工程"></div>
+    <div class="form-row">
+      <div class="form-group"><label>合約金額 *</label><input id="p-amount" type="number" placeholder="0" inputmode="numeric"></div>
+      <div class="form-group"><label>開始日期</label><input id="p-start" type="date"></div>
+    </div>
+    <div class="form-group"><label>說明</label><input id="p-desc" placeholder="工程描述（選填）"></div>
+    <button class="btn btn-primary" onclick="addProject()">新增工程</button>
+  </div>
+  <div class="card">
+    <div class="card-title">🏗 工程列表</div>
+    <div id="projects-list"></div>
+  </div>
+</div>
+
+<!-- 收款 -->
+<div id="page-payments" class="page">
+  <div class="card">
+    <div class="card-title">➕ 新增收款</div>
+    <div class="form-group"><label>工程 *</label><select id="pay-project"><option value="">選擇工程</option></select></div>
+    <div class="form-row">
+      <div class="form-group"><label>金額 *</label><input id="pay-amount" type="number" placeholder="0" inputmode="numeric"></div>
+      <div class="form-group"><label>日期 *</label><input id="pay-date" type="date"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>收款方式</label>
+        <select id="pay-method"><option>現金</option><option>匯款</option><option>支票</option><option>其他</option></select>
+      </div>
+      <div class="form-group"><label>備註</label><input id="pay-note" placeholder="第一期款"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addPayment()">新增收款</button>
+  </div>
+  <div class="card">
+    <div class="card-title">💰 收款紀錄</div>
+    <div class="filter-bar">
+      <select id="filter-pay-proj" onchange="renderPayments()"><option value="">全部工程</option></select>
+    </div>
+    <div id="payments-list"></div>
+  </div>
+</div>
+
+<!-- 支出 -->
+<div id="page-expenses" class="page">
+  <div class="card">
+    <div class="card-title">➕ 新增支出</div>
+    <div class="form-row">
+      <div class="form-group"><label>類別 *</label>
+        <select id="exp-cat">
+          <option>工資</option><option>包土</option><option>泡粒</option>
+          <option>材料</option><option>機具租賃</option><option>運費</option><option>其他</option>
+        </select>
+      </div>
+      <div class="form-group"><label>金額 *</label><input id="exp-amount" type="number" placeholder="0" inputmode="numeric"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>日期 *</label><input id="exp-date" type="date"></div>
+      <div class="form-group"><label>工程（選填）</label><select id="exp-project"><option value="">不分工程</option></select></div>
+    </div>
+    <div class="form-group"><label>說明</label><input id="exp-desc" placeholder="王師傅工資 3天"></div>
+    <button class="btn btn-primary" onclick="addExpense()">新增支出</button>
+  </div>
+  <div class="card">
+    <div class="card-title">💸 支出紀錄</div>
+    <div class="filter-bar">
+      <select id="filter-exp-cat" onchange="renderExpenses()">
+        <option value="">全部類別</option>
+        <option>工資</option><option>包土</option><option>泡粒</option>
+        <option>材料</option><option>機具租賃</option><option>運費</option><option>其他</option>
+      </select>
+      <select id="filter-exp-proj" onchange="renderExpenses()"><option value="">全部工程</option></select>
+    </div>
+    <div id="expenses-list"></div>
+    <div id="expenses-total" class="total-row" style="display:none"></div>
+  </div>
+  <button class="btn" style="background:white;border:1.5px solid var(--gray-200);color:var(--gray-700);margin-top:4px" onclick="exportCSV()">📥 匯出 CSV</button>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="showPage('dashboard',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    總覽
+  </button>
+  <button class="nav-btn" onclick="showPage('clients',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg>
+    客戶
+  </button>
+  <button class="nav-btn" onclick="showPage('projects',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    工程
+  </button>
+  <button class="nav-btn" onclick="showPage('payments',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    收款
+  </button>
+  <button class="nav-btn" onclick="showPage('expenses',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    支出
+  </button>
+</nav>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAANFM1O-gfZ-4ekBqRo-pY2YI5XulG3c4XFP0klnP-znPU_Pa-e4Nm7ykC4518-7Y/exec';
+
+let clients = JSON.parse(localStorage.getItem('cst_clients')||'[]');
+let projects = JSON.parse(localStorage.getItem('cst_projects')||'[]');
+let payments = JSON.parse(localStorage.getItem('cst_payments')||'[]');
+let expenses = JSON.parse(localStorage.getItem('cst_expenses')||'[]');
+expenses = expenses.map(e=>({...e, cat: e.cat==='土方'?'包土':e.cat}));
+
+let syncTimer = null;
+let isSyncing = false;
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function fmt(n){ return Number(n).toLocaleString('zh-TW'); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function getClientName(id){ const c=clients.find(x=>x.id===id); return c?c.name:'未知'; }
+function getPaid(pid){ return payments.filter(p=>p.projectId===pid).reduce((s,p)=>s+Number(p.amount),0); }
+
+function showToast(msg, dur=2000){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function setSyncStatus(state, msg){
+  const dot=document.getElementById('sync-dot');
+  const txt=document.getElementById('sync-text');
+  dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  txt.textContent=msg;
+}
+
+function saveLocal(){
+  localStorage.setItem('cst_clients', JSON.stringify(clients));
+  localStorage.setItem('cst_projects', JSON.stringify(projects));
+  localStorage.setItem('cst_payments', JSON.stringify(payments));
+  localStorage.setItem('cst_expenses', JSON.stringify(expenses));
+}
+
+async function syncToSheet(){
+  if(isSyncing) return;
+  isSyncing=true;
+  setSyncStatus('syncing','同步中...');
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({
+        action:'save',
+        clients, projects, payments, expenses
+      })
+    });
+    const data = await res.json();
+    if(data.ok){
+      setSyncStatus('ok','已同步到 Google Sheets · '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    } else {
+      throw new Error(data.error||'未知錯誤');
+    }
+  } catch(e){
+    setSyncStatus('error','同步失敗，資料已存在本機');
+  }
+  isSyncing=false;
+}
+
+async function loadFromSheet(){
+  setSyncStatus('syncing','從雲端載入...');
+  try {
+    const res = await fetch(SCRIPT_URL+'?action=load');
+    const data = await res.json();
+    if(data.clients){
+      if(data.clients.length>0) clients=data.clients;
+      if(data.projects.length>0) projects=data.projects;
+      if(data.payments.length>0) payments=data.payments;
+      if(data.expenses.length>0) expenses=data.expenses.map(e=>({...e,cat:e.cat==='土方'?'包土':e.cat}));
+      saveLocal();
+      setSyncStatus('ok','已從雲端載入 · '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+      renderDashboard();
+      populateSelects();
+      showToast('✅ 雲端資料已載入');
+    } else {
+      setSyncStatus('ok','雲端尚無資料，使用本機資料');
+    }
+  } catch(e){
+    setSyncStatus('error','無法連線，使用本機資料');
+  }
+}
+
+function scheduleSave(){
+  saveLocal();
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncToSheet, 3000);
+}
+
+function syncNow(){
+  clearTimeout(syncTimer);
+  syncToSheet();
+  showToast('🔄 正在同步...');
+}
+
+function showPage(name, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  populateSelects();
+  if(name==='dashboard') renderDashboard();
+  if(name==='clients') renderClients();
+  if(name==='projects') renderProjects();
+  if(name==='payments') renderPayments();
+  if(name==='expenses') renderExpenses();
+}
+
+function populateSelects(){
+  const map = {
+    'p-client': ()=>'<option value="">選擇客戶</option>'+clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join(''),
+    'pay-project': ()=>'<option value="">選擇工程</option>'+projects.map(p=>`<option value="${p.id}">${getClientName(p.clientId)} — ${p.name}</option>`).join(''),
+    'exp-project': ()=>'<option value="">不分工程</option>'+projects.map(p=>`<option value="${p.id}">${getClientName(p.clientId)} — ${p.name}</option>`).join(''),
+    'filter-pay-proj': ()=>'<option value="">全部工程</option>'+projects.map(p=>`<option value="${p.id}">${getClientName(p.clientId)} — ${p.name}</option>`).join(''),
+    'filter-exp-proj': ()=>'<option value="">全部工程</option>'+projects.map(p=>`<option value="${p.id}">${getClientName(p.clientId)} — ${p.name}</option>`).join(''),
+  };
+  Object.entries(map).forEach(([id,fn])=>{
+    const el=document.getElementById(id);
+    if(el){const v=el.value; el.innerHTML=fn(); el.value=v;}
+  });
+}
+
+function addClient(){
+  const name=document.getElementById('c-name').value.trim();
+  if(!name){alert('請填寫姓名');return;}
+  clients.push({id:uid(),name,phone:document.getElementById('c-phone').value,address:document.getElementById('c-address').value,note:document.getElementById('c-note').value});
+  scheduleSave();
+  ['c-name','c-phone','c-address','c-note'].forEach(id=>document.getElementById(id).value='');
+  renderClients(); showToast('✅ 已新增客戶');
+}
+function delClient(id){
+  if(!confirm('確定刪除？'))return;
+  clients=clients.filter(c=>c.id!==id); scheduleSave(); renderClients();
+}
+function renderClients(){
+  const el=document.getElementById('clients-list');
+  if(!clients.length){el.innerHTML='<div class="empty">尚無客戶資料</div>';return;}
+  el.innerHTML=clients.map(c=>`<div class="list-item">
+    <div class="list-item-row">
+      <div><div class="list-item-title">${c.name}</div>
+      <div class="list-item-sub">${[c.phone,c.address,c.note].filter(Boolean).join(' · ')||'無備註'}</div></div>
+      <button class="btn-danger-sm" onclick="delClient('${c.id}')">刪除</button>
+    </div></div>`).join('');
+}
+
+function addProject(){
+  const clientId=document.getElementById('p-client').value;
+  const name=document.getElementById('p-name').value.trim();
+  const amount=document.getElementById('p-amount').value;
+  if(!clientId||!name||!amount){alert('請填寫必要欄位');return;}
+  projects.push({id:uid(),clientId,name,amount:Number(amount),start:document.getElementById('p-start').value,desc:document.getElementById('p-desc').value});
+  scheduleSave();
+  ['p-name','p-amount','p-start','p-desc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p-client').value='';
+  renderProjects(); showToast('✅ 已新增工程');
+}
+function delProject(id){
+  if(!confirm('確定刪除工程？收款記錄也會刪除。'))return;
+  projects=projects.filter(p=>p.id!==id);
+  payments=payments.filter(p=>p.projectId!==id);
+  scheduleSave(); renderProjects();
+}
+function renderProjects(){
+  const el=document.getElementById('projects-list');
+  if(!projects.length){el.innerHTML='<div class="empty">尚無工程</div>';return;}
+  el.innerHTML=projects.map(p=>{
+    const paid=getPaid(p.id); const left=p.amount-paid;
+    const pct=p.amount?Math.round(paid/p.amount*100):0;
+    const badge=left<=0?'badge-green':paid>0?'badge-amber':'badge-red';
+    const badgeText=left<=0?'已收清':paid>0?'部分收款':'未收款';
+    return`<div class="list-item">
+      <div class="list-item-header">
+        <div><div class="list-item-title">${p.name}</div>
+        <div class="list-item-sub">${getClientName(p.clientId)}${p.start?' · '+p.start:''}</div></div>
+        <span class="badge ${badge}">${badgeText}</span>
+      </div>
+      <div class="list-item-row" style="margin-top:6px">
+        <div style="font-size:13px;color:var(--gray-500)">合約 $${fmt(p.amount)}</div>
+        <div style="font-size:13px"><span style="color:var(--green)">已收 $${fmt(paid)}</span> · <span style="color:var(--red)">待收 $${fmt(left)}</span></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill ${pct>=100?'green':''}" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span style="font-size:11px;color:var(--gray-400)">${pct}% 已收</span>
+        <button class="btn-danger-sm" onclick="delProject('${p.id}')">刪除</button>
+      </div></div>`;
+  }).join('');
+}
+
+function addPayment(){
+  const projectId=document.getElementById('pay-project').value;
+  const amount=document.getElementById('pay-amount').value;
+  const date=document.getElementById('pay-date').value;
+  if(!projectId||!amount||!date){alert('請填寫必要欄位');return;}
+  payments.push({id:uid(),projectId,amount:Number(amount),date,method:document.getElementById('pay-method').value,note:document.getElementById('pay-note').value});
+  scheduleSave();
+  ['pay-amount','pay-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pay-project').value='';
+  renderPayments(); showToast('✅ 已新增收款');
+}
+function delPayment(id){
+  if(!confirm('確定刪除？'))return;
+  payments=payments.filter(p=>p.id!==id); scheduleSave(); renderPayments();
+}
+function renderPayments(){
+  const filterP=document.getElementById('filter-pay-proj').value;
+  const el=document.getElementById('payments-list');
+  let data=payments.filter(p=>!filterP||p.projectId===filterP);
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!data.length){el.innerHTML='<div class="empty">尚無收款紀錄</div>';return;}
+  el.innerHTML=data.map(p=>{
+    const proj=projects.find(x=>x.id===p.projectId)||{};
+    return`<div class="list-item">
+      <div class="list-item-header">
+        <div><div class="list-item-title" style="color:var(--green)">+$${fmt(p.amount)}</div>
+        <div class="list-item-sub">${getClientName(proj.clientId||'')} · ${proj.name||'—'}</div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:var(--gray-500)">${p.date}</div>
+        <span class="badge badge-blue">${p.method}</span></div>
+      </div>
+      ${p.note?`<div style="font-size:12px;color:var(--gray-500);margin-top:4px">${p.note}</div>`:''}
+      <div style="text-align:right;margin-top:6px"><button class="btn-danger-sm" onclick="delPayment('${p.id}')">刪除</button></div>
+    </div>`;
+  }).join('');
+}
+
+function addExpense(){
+  const amount=document.getElementById('exp-amount').value;
+  const date=document.getElementById('exp-date').value;
+  if(!amount||!date){alert('請填寫必要欄位');return;}
+  expenses.push({id:uid(),projectId:document.getElementById('exp-project').value,date,cat:document.getElementById('exp-cat').value,amount:Number(amount),desc:document.getElementById('exp-desc').value});
+  scheduleSave();
+  ['exp-amount','exp-desc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('exp-project').value='';
+  renderExpenses(); showToast('✅ 已新增支出');
+}
+function delExpense(id){
+  if(!confirm('確定刪除？'))return;
+  expenses=expenses.filter(e=>e.id!==id); scheduleSave(); renderExpenses();
+}
+function renderExpenses(){
+  const filterCat=document.getElementById('filter-exp-cat').value;
+  const filterP=document.getElementById('filter-exp-proj').value;
+  const el=document.getElementById('expenses-list');
+  const totalEl=document.getElementById('expenses-total');
+  let data=expenses.filter(e=>(!filterCat||e.cat===filterCat)&&(!filterP||e.projectId===filterP));
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+  const total=data.reduce((s,e)=>s+e.amount,0);
+  if(total>0){totalEl.style.display='flex';totalEl.innerHTML=`<span>合計</span><span style="color:var(--red)">-$${fmt(total)}</span>`;}
+  else totalEl.style.display='none';
+  if(!data.length){el.innerHTML='<div class="empty">尚無支出紀錄</div>';return;}
+  const catColor={'工資':'badge-blue','包土':'badge-amber','泡粒':'badge-amber','材料':'badge-green','機具租賃':'badge-red','運費':'badge-red','其他':'badge-blue'};
+  el.innerHTML=data.map(e=>{
+    const proj=projects.find(x=>x.id===e.projectId);
+    return`<div class="list-item">
+      <div class="list-item-header">
+        <div><div class="list-item-title" style="color:var(--red)">-$${fmt(e.amount)}</div>
+        <div class="list-item-sub">${proj?proj.name:'不分工程'}${e.desc?' · '+e.desc:''}</div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:var(--gray-500)">${e.date}</div>
+        <span class="badge ${catColor[e.cat]||'badge-blue'}">${e.cat}</span></div>
+      </div>
+      <div style="text-align:right;margin-top:6px"><button class="btn-danger-sm" onclick="delExpense('${e.id}')">刪除</button></div>
+    </div>`;
+  }).join('');
+}
+
+function renderDashboard(){
+  const totalContract=projects.reduce((s,p)=>s+p.amount,0);
+  const totalPaid=payments.reduce((s,p)=>s+p.amount,0);
+  const totalExp=expenses.reduce((s,e)=>s+e.amount,0);
+  const profit=totalPaid-totalExp;
+  document.getElementById('summary-grid').innerHTML=`
+    <div class="metric"><div class="metric-label">合約總金額</div><div class="metric-value blue">$${fmt(totalContract)}</div></div>
+    <div class="metric"><div class="metric-label">已收款</div><div class="metric-value green">$${fmt(totalPaid)}</div></div>
+    <div class="metric"><div class="metric-label">待收款</div><div class="metric-value ${totalContract-totalPaid>0?'red':'green'}">$${fmt(totalContract-totalPaid)}</div></div>
+    <div class="metric"><div class="metric-label">總支出</div><div class="metric-value red">$${fmt(totalExp)}</div></div>
+    <div class="metric" style="grid-column:span 2"><div class="metric-label">毛利（已收 − 支出）</div><div class="metric-value ${profit>=0?'green':'red'}">$${fmt(profit)}</div></div>`;
+  const unpaid=projects.filter(p=>getPaid(p.id)<p.amount);
+  const ul=document.getElementById('unpaid-list');
+  if(!unpaid.length){ul.innerHTML='<div class="empty">🎉 所有款項已收清</div>';}
+  else ul.innerHTML=unpaid.map(p=>{
+    const paid=getPaid(p.id); const left=p.amount-paid;
+    return`<div class="list-item"><div class="list-item-row">
+      <div><div class="list-item-title">${getClientName(p.clientId)}</div><div class="list-item-sub">${p.name}</div></div>
+      <div style="text-align:right"><div style="font-weight:700;color:var(--red)">$${fmt(left)}</div><div style="font-size:11px;color:var(--gray-400)">待收</div></div>
+    </div></div>`;
+  }).join('');
+  const re=document.getElementById('recent-expenses');
+  const recent=[...expenses].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  if(!recent.length){re.innerHTML='<div class="empty">尚無支出紀錄</div>';}
+  else re.innerHTML=recent.map(e=>`<div class="list-item"><div class="list-item-row">
+    <div><div class="list-item-title">${e.cat}${e.desc?' · '+e.desc:''}</div><div class="list-item-sub">${e.date}</div></div>
+    <div style="font-weight:700;color:var(--red)">-$${fmt(e.amount)}</div>
+  </div></div>`).join('');
+}
+
+function exportCSV(){
+  let csv='\uFEFF日期,類別,工程,說明,金額\n';
+  expenses.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
+    const proj=projects.find(x=>x.id===e.projectId);
+    csv+=`${e.date},${e.cat},${proj?proj.name:''},${e.desc||''},${e.amount}\n`;
+  });
+  csv+='\n日期,客戶,工程,金額,方式,備註\n';
+  payments.sort((a,b)=>b.date.localeCompare(a.date)).forEach(p=>{
+    const proj=projects.find(x=>x.id===p.projectId)||{};
+    csv+=`${p.date},${getClientName(proj.clientId||'')},${proj.name||''},${p.amount},${p.method},${p.note||''}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='工地管理_'+today().replace(/-/g,'')+'.csv';
+  a.click();
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+document.getElementById('pay-date').value=today();
+document.getElementById('exp-date').value=today();
+populateSelects();
+renderDashboard();
+loadFromSheet();
+</script>
+</body>
+</html>
